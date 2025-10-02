@@ -2,69 +2,71 @@
 
 -----
 
-# 🚀 QTURSO: Il Driver Qt per Turso (libSQL)
+# 🚀 QTURSO: The Qt Driver for Turso (libSQL)
 
-Un plugin **`QSqlDriver`** per connettere le applicazioni Qt/C++ al database distribuito Turso (basato su Turso).
+A **`QSqlDriver`** plugin to connect Qt/C++ applications to the Turso distributed database (based on libSQL).
 
------
-
-## 💡 1. Introduzione e Obiettivi del Progetto
-
-Il modulo **Qt SQL** offre un'interfaccia database-agnostica (`QSqlDatabase`, `QSqlQuery`). Tuttavia, per connettersi a sistemi come **Turso**, è necessario un driver dedicato.
-
-**QTURSO** colma questo divario, estendendo le capacità di Qt SQL:
-
-  * Consente alle applicazioni Qt di accedere a un **database distribuito** e ad **alta disponibilità**.
-  * Sfrutta i vantaggi di **Turso** ( SQLite riscritto in rust).
 
 -----
 
-## 🛠️ 2. Architettura e Implementazione
+## 💡 1. Introduction and Project Goals
 
-Il driver QTURSO è un plugin che implementa i seguenti componenti di Qt SQL:
+The **Qt SQL** module provides a database-agnostic interface (`QSqlDatabase`, `QSqlQuery`). However, to connect to systems like **Turso**, a dedicated driver is required.
 
-### A. QTURSO\_Driver (`QSqlDriver`)
-.
+**QTURSO** bridges this gap, extending Qt SQL capabilities:
 
-### B. QTURSO\_Result (`QSqlResult`)
+  * Enables Qt applications to access a **distributed** and **highly available** database.
+  * Leverages the advantages of **Turso** (SQLite rewritten in Rust).
 
-Si occupa dell'esecuzione delle istruzioni SQL e della gestione dei set di risultati.
-
-  * **Esecuzione Query:** Invia l'istruzione SQL al server Turso.
-  * **Mappatura dei Dati:** Converte la risposta  nei tipi nativi **`QVariant`** di Qt.
 
 -----
 
-## 🔌 3. Guida Rapida all'Uso
+## 🛠️ 2. Architecture and Implementation
 
-### 3.1. Aggiungere il Driver
+The QTURSO driver is a plugin that implements the following Qt SQL components:
 
-Dopo aver compilato e installato il plugin `qturso.so`/`.dll`, si utilizza come un qualsiasi driver Qt:
-inoltre è necessario distrubuire anche la libreria `turso_sqlite3.so/.dll`
+### A. QTursoDriver (`QSqlDriver`)
+
+Manages database connection and metadata.
+
+### B. QTursoResult (`QSqlResult`)
+
+Handles SQL statement execution and result set management.
+
+  * **Query Execution:** Sends the SQL statement to the Turso server.
+  * **Data Mapping:** Converts the response into Qt's native **`QVariant`** types.
+
+-----
+
+## 📌 3. Quick Start Guide
+
+### 3.1. Adding the Driver
+
+After compiling and installing the `qturso.so`/`.dll` plugin, use it like any Qt driver.
+Additionally, you need to distribute the `turso_sqlite3.so/.dll` library:
+
 ```cpp
 #include <QSqlDatabase>
 #include <QDebug>
 
-// Aggiungere il database specificando il nome del driver QTURSO
+// Add the database specifying the QTURSO driver name
 QSqlDatabase db = QSqlDatabase::addDatabase("QTURSO"); 
 ```
 
-### 3.2. Configurare e Aprire la Connessione
-
-È necessario specificare l'URL del tuo database Turso e il relativo Token API:
+### 3.2. Configure and Open the Connection
+You need to specify your Turso database file path:
 
 ```cpp
-    db.setDatabaseName("data/db.sqlite");
+db.setDatabaseName("data/db.sqlite");
 if (!db.open()) {
-    qCritical() << "ERRORE: Impossibile connettersi a Turso:" << db.lastError().text();
+    qCritical() << "ERROR: Unable to connect to Turso:" << db.lastError().text();
 } else {
-    qInfo() << "SUCCESS: Connessione QTURSO stabilita.";
+    qInfo() << "SUCCESS: QTURSO connection established.";
 }
 ```
 
-### 3.3. Esecuzione di una Query
-
-Le query vengono eseguite in modo standard con `QSqlQuery`:
+### 3.3. Executing a Query
+Queries are executed in the standard way with QSqlQuery:
 
 ```cpp
 QSqlQuery query(db);
@@ -81,23 +83,119 @@ if (query.exec("SELECT id FROM test")) {
 
 -----
 
-## 🛣️ 4. Stato di Sviluppo e Roadmap
 
-### ✅ Funzionalità Attuali
+## 🛣️ 5. Development Status and Roadmap
 
-  * Connessione e Disconnessione.
-  * Esecuzione di query DML/DDL semplici (SELECT, INSERT, CREATE TABLE, ecc.).
-  * Mappatura dei tipi di dati di base.
+### ✅ Current Features
 
-### 🔜 Prossimi Passi (Roadmap)
+  * Connection and disconnection
+  * Execution of simple DML/DDL queries (SELECT, INSERT, CREATE TABLE, etc.)
+  * Basic data type mapping (INTEGER, TEXT, REAL, BLOB, NULL)
+  * Prepared statements with parameter binding
+  * Transaction support (BEGIN, COMMIT, ROLLBACK)
 
-1.  **Prepared Statements Avanzati:** Implementazione ottimizzata dei binding per `QSqlQuery::prepare()`.
-2.  **Transazioni (Batching):** Pieno supporto per `QSqlDriver::beginTransaction()`, `commit()`, e `rollback()`.
-3.  **Benchmark :** Test sulla velocità del db
-4. **Multi concurrency** test sulla scrittura multi thread
+### 🔜 Next Steps (Roadmap)
+
+
+1. **Unit test** 
+2. **Advanced Prepared Statements:** Optimized implementation of bindings for `QSqlQuery::prepare()`
+3. **Multi-concurrency Testing:** Multi-threaded write testing with `BEGIN CONCURRENT`
+4. **Benchmarks:** Database speed testing and performance comparisons
+5. **Remote Connection Support:** Connect to Turso Cloud databases
+6. **Embedded Replicas:** Support for local replicas with sync
+-----
+
+## 📋 6. API Examples
+
+### Creating a Table
+
+```cpp
+QSqlQuery query(db);
+if(!query.exec("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT)"))
+{
+    qDebug() << query.lastError().text();
+}
+```
+
+### Inserting Data
+
+```cpp
+QSqlQuery query(db);
+query.prepare("INSERT INTO users (name, email) VALUES (?, ?)");
+query.addBindValue("John Doe");
+query.addBindValue("john@example.com");
+if(!query.exec())
+{
+  qDebug() << query.lastError().text();
+}
+```
+
+### Updating Data
+
+```cpp
+QSqlQuery query(db);
+query.prepare("UPDATE users SET email = ? WHERE id = ?");
+query.addBindValue("newemail@example.com");
+query.addBindValue(1);
+if(!query.exec())
+{
+  qDebug() << query.lastError().text();
+}
+```
+
+### Transactions
+
+```cpp
+db.transaction();
+
+QSqlQuery query(db);
+bool ok = true;
+ok= query.exec("INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')");
+
+if (ok) {
+    db.commit();
+} else {
+    db.rollback();
+}
+```
+-----
+
+## 🐛 7. Known Issues and Limitations
+
+- Remote Turso Cloud connections not yet implemented
+- `BEGIN CONCURRENT` support planned for future releases
+- Some advanced SQLite features may not be fully tested
+- UTF-16 SQLite functions not supported (uses UTF-8 only)
 
 -----
-### Nota ###
-Il driver è solo per test.
+
+## 📄 8. License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+-----
+
+## 🤝 9. Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+-----
+
+## 📧 10. Contact and Support
+
+- **Issues:** [GitHub Issues](https://github.com/piervalli/QtLimbo/issues)
+
+
+-----
+
+### ⚠️ Note
+
+**This driver is currently in development and intended for testing purposes only. Do not use in production environments.**
 
 
