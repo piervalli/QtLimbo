@@ -4,7 +4,7 @@
 
 # 🚀 QTURSO: Il Driver Qt per Turso (libSQL)
 
-Un plugin **`QSqlDriver`** per connettere le applicazioni Qt/C++ al database distribuito Turso (basato su libSQL).
+Un plugin **`QSqlDriver`** per connettere le applicazioni Qt/C++ al database distribuito Turso (basato su Turso).
 
 -----
 
@@ -31,7 +31,7 @@ Il driver QTURSO è un plugin che implementa i seguenti componenti di Qt SQL:
 Si occupa dell'esecuzione delle istruzioni SQL e della gestione dei set di risultati.
 
   * **Esecuzione Query:** Invia l'istruzione SQL al server Turso.
-  * **Mappatura dei Dati:** Converte la risposta JSON/Protocollo libSQL (che contiene i dati) nei tipi nativi **`QVariant`** di Qt.
+  * **Mappatura dei Dati:** Converte la risposta  nei tipi nativi **`QVariant`** di Qt.
 
 -----
 
@@ -40,7 +40,7 @@ Si occupa dell'esecuzione delle istruzioni SQL e della gestione dei set di risul
 ### 3.1. Aggiungere il Driver
 
 Dopo aver compilato e installato il plugin `qturso.so`/`.dll`, si utilizza come un qualsiasi driver Qt:
-
+inoltre è necessario distrubuire anche la libreria `turso_sqlite3.so/.dll`
 ```cpp
 #include <QSqlDatabase>
 #include <QDebug>
@@ -69,11 +69,10 @@ Le query vengono eseguite in modo standard con `QSqlQuery`:
 ```cpp
 QSqlQuery query(db);
 
-if (query.exec("SELECT id, name FROM users WHERE active = TRUE")) {
+if (query.exec("SELECT id FROM test")) {
     while (query.next()) {
         int id = query.value("id").toInt();
-        QString name = query.value("name").toString();
-        qDebug() << "Utente ID:" << id << "Nome:" << name;
+        qDebug() << "id:" << id << "Nome:" << name;
     }
 } else {
     qWarning() << "Errore Query:" << query.lastError().text();
@@ -94,10 +93,11 @@ if (query.exec("SELECT id, name FROM users WHERE active = TRUE")) {
 
 1.  **Prepared Statements Avanzati:** Implementazione ottimizzata dei binding per `QSqlQuery::prepare()`.
 2.  **Transazioni (Batching):** Pieno supporto per `QSqlDriver::beginTransaction()`, `commit()`, e `rollback()`.
-3.  **Gestione degli Errori:** Mappatura più granulare degli errori Turso/libSQL con `QSqlError`.
+3.  **Benchmark :** Test sulla velocità del db
+4. **Multi concurrency** test sulla scrittura multi thread
 
 -----
 ### Nota ###
-Il driver non è per test.
+Il driver è solo per test.
 
 
