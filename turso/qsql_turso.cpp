@@ -230,15 +230,10 @@ void QSQLiteResultPrivate::initColumns(bool emptyResultset)
     q->init(nCols);
 
     for (int i = 0; i < nCols; ++i) {
-        QString colName = QString(reinterpret_cast<const QChar *>(
-                    sqlite3_column_name(stmt, i))
-                    ).remove(QLatin1Char('"'));
-        const QString tableName = QString(reinterpret_cast<const QChar *>(
-                            sqlite3_column_table_name(stmt, i))
-                            ).remove(QLatin1Char('"'));
+        QString colName = QString::fromUtf8(sqlite3_column_name(stmt, i));
+        const QString tableName = QString::fromUtf8(sqlite3_column_table_name(stmt, 0));
         // must use typeName for resolving the type to match QSqliteDriver::record
-        QString typeName = QString(reinterpret_cast<const QChar *>(
-                    sqlite3_column_decltype(stmt, i)));
+        QString typeName = QString::fromUtf8(sqlite3_column_decltype(stmt, i));
         // sqlite3_column_type is documented to have undefined behavior if the result set is empty
         int stp = emptyResultset ? -1 : sqlite3_column_type(stmt, i);
 
@@ -267,7 +262,7 @@ void QSQLiteResultPrivate::initColumns(bool emptyResultset)
                 break;
             }
         }
-
+        qDebug() << colName << fieldType << tableName;
         QSqlField fld(colName, fieldType, tableName);
         fld.setSqlType(stp);
         rInf.append(fld);
@@ -842,8 +837,9 @@ bool QSQLiteDriver::open(const QString & db, const QString &, const QString &, c
 		if (rc != SQLITE_OK) {
 			qWarning("Failed to register uuid_generate_v4: %s", sqlite3_errmsg(d->access));
 		}
-#endif
+
         return true;
+#endif
     } else {
         setLastError(qMakeError(d->access, tr("Error opening database"),
                      QSqlError::ConnectionError, res));

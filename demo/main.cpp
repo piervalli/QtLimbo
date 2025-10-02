@@ -76,14 +76,32 @@ int main(int argc, char *argv[])
         }
     }while(i<10);
     dbconn.commit();
+    if(!query.exec(" select id from test LIMIT 1;"))
+    {
+        qDebug() << query.lastError().text();
+    }
+    while (query.next()) {
+        qDebug() << "version"<<query.record();
+    }
 
-    // if(!query.exec("select id, name from test LIMIT 1"))
-    // {
-    //     qCritical() << query.lastError().text();
-    // }
-    // while (query.next()) {
-    //     qCritical() << query.record();
-    // }
+    if(!query.exec("pragma table_info('test');"))
+    {
+
+        qCritical() << query.lastError().text();
+    }
+    auto recordEmpty=query.record();
+    auto columnsSize = recordEmpty.count();
+    qDebug() << "columns" << columnsSize;
+
+    while (query.next())
+    {
+        QSqlRecord record=query.record();
+        for (int i = 0; i < columnsSize; ++i)
+        {
+            const auto field = record.field(i);
+            qDebug() << record.fieldName(i) << field.type() << field.tableName();
+        }
+    }
 
     dbconn.close();
 
