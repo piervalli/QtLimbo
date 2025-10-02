@@ -21,13 +21,13 @@ include($$PWD/3rdparty/turso.pri)
 
 OTHER_FILES += turso.json
 
-LIBS += $$QT_LFLAGS_SQLITE
-QMAKE_CXXFLAGS *= $$QT_CFLAGS_SQLITE
+# LIBS += $$QT_LFLAGS_SQLITE
+# QMAKE_CXXFLAGS *= $$QT_CFLAGS_SQLITE
 
 QMAKE_CXXFLAGS += -DSQLITE_ENABLE_WAL2
 
 
-PLUGIN_CLASS_NAME = QSQLiteDriverPlugin
+PLUGIN_CLASS_NAME = QTursoDriverPlugin
 
 PLUGIN_TYPE = sqldrivers
 #include(../qsqldriverbase.pri)

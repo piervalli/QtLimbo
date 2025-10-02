@@ -56,25 +56,25 @@
 struct sqlite3;
 
 #ifdef QT_PLUGIN
-#define Q_EXPORT_SQLDRIVER_SQLITE
+#define Q_EXPORT_SQLDRIVER_TURSO
 #else
-#define Q_EXPORT_SQLDRIVER_SQLITE Q_SQL_EXPORT
+#define Q_EXPORT_SQLDRIVER_TURSO Q_SQL_EXPORT
 #endif
 
 QT_BEGIN_NAMESPACE
 
 class QSqlResult;
-class QSQLiteDriverPrivate;
+class QTursoDriverPrivate;
 
-class Q_EXPORT_SQLDRIVER_SQLITE QSQLiteDriver : public QSqlDriver
+class Q_EXPORT_SQLDRIVER_TURSO QTursoDriver : public QSqlDriver
 {
-    Q_DECLARE_PRIVATE(QSQLiteDriver)
+    Q_DECLARE_PRIVATE(QTursoDriver)
     Q_OBJECT
-    friend class QSQLiteResultPrivate;
+    friend class QTursoResultPrivate;
 public:
-    explicit QSQLiteDriver(QObject *parent = nullptr);
-    explicit QSQLiteDriver(sqlite3 *connection, QObject *parent = nullptr);
-    ~QSQLiteDriver();
+    explicit QTursoDriver(QObject *parent = nullptr);
+    explicit QTursoDriver(sqlite3 *connection, QObject *parent = nullptr);
+    ~QTursoDriver();
     bool hasFeature(DriverFeature f) const override;
     bool open(const QString & db,
                    const QString & user,

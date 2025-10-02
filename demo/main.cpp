@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
 
     // QTemporaryDir tmp;
     // Q_ASSERT(tmp.isValid());
-    QString databasePath = "local.db";
+    QString databasePath = "local.sqlite";
     qDebug() << "DB File Path is:" << databasePath;
 
 
@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
         qDebug() << query.lastError().text();
     }
     while (query.next()) {
-        qDebug() << "version"<<query.value(0);
+        qDebug() << "sqlite_version"<< query.value(0);
     }
 
     if(!query.exec("CREATE TABLE IF NOT EXISTS test (id int, name varchar)"))
@@ -76,12 +76,12 @@ int main(int argc, char *argv[])
         }
     }while(i<10);
     dbconn.commit();
-    if(!query.exec(" select id from test LIMIT 1;"))
+    if(!query.exec(" select id,name from test LIMIT 1;"))
     {
         qDebug() << query.lastError().text();
     }
     while (query.next()) {
-        qDebug() << "version"<<query.record();
+        qDebug() << "record 1"<<query.value(0) << query.value(1);
     }
 
     if(!query.exec("pragma table_info('test');"))

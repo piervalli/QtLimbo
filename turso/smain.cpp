@@ -43,26 +43,26 @@
 
 QT_BEGIN_NAMESPACE
 
-class QSQLiteDriverPlugin : public QSqlDriverPlugin
+class QTursoDriverPlugin : public QSqlDriverPlugin
 {
     Q_OBJECT
     Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QSqlDriverFactoryInterface" FILE "turso.json")
 
 public:
-    QSQLiteDriverPlugin();
+    QTursoDriverPlugin();
 
     QSqlDriver* create(const QString &) override;
 };
 
-QSQLiteDriverPlugin::QSQLiteDriverPlugin()
+QTursoDriverPlugin::QTursoDriverPlugin()
     : QSqlDriverPlugin()
 {
 }
 
-QSqlDriver* QSQLiteDriverPlugin::create(const QString &name)
+QSqlDriver* QTursoDriverPlugin::create(const QString &name)
 {
     if (name == QLatin1String("QTURSO")) {
-        QSQLiteDriver* driver = new QSQLiteDriver();
+        QTursoDriver* driver = new QTursoDriver();
         return driver;
     }
     return 0;
