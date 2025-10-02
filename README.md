@@ -2,7 +2,7 @@
 
 -----
 
-# 🚀 QTURSO: The Qt Driver for Turso (libSQL)
+# 🚀 QTURSO: The Qt Driver for Turso (Turso)
 
 A **`QSqlDriver`** plugin to connect Qt/C++ applications to the Turso distributed database (based on Turso).
 
