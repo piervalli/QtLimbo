@@ -7,6 +7,7 @@
 A **`QSqlDriver`** plugin to connect Qt/C++ applications to the Turso distributed database (based on Turso).
 
 
+
 -----
 
 ## 💡 1. Introduction and Project Goals
@@ -88,6 +89,7 @@ if (query.exec("SELECT id FROM test")) {
 
 ### ✅ Current Features
 
+  * Qt5 required, tested on Qt 5.15.16
   * Connection and disconnection
   * Execution of simple DML/DDL queries (SELECT, INSERT, CREATE TABLE, etc.)
   * Basic data type mapping (INTEGER, TEXT, REAL, BLOB, NULL)
