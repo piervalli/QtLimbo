@@ -307,7 +307,8 @@ bool QTursoResultPrivate::fetchNext(QSqlCachedResult::ValueCache &values, int id
         if (idx < 0 && !initialFetch)
             return true;
         for (i = 0; i < rInf.count(); ++i) {
-            switch (sqlite3_column_type(stmt, i)) {
+            const auto iType = sqlite3_column_type(stmt, i);
+            switch (iType) {
             case SQLITE_BLOB:
                 values[i + idx] = QByteArray(static_cast<const char *>(
                             sqlite3_column_blob(stmt, i)),
@@ -334,9 +335,19 @@ bool QTursoResultPrivate::fetchNext(QSqlCachedResult::ValueCache &values, int id
             case SQLITE_NULL:
                 values[i + idx] = QVariant(QVariant::String);
                 break;
+            case SQLITE_TEXT:
+            {
+                const auto rawValue=reinterpret_cast<const char*>(sqlite3_column_text(stmt, i));
+                int bytes = sqlite3_column_bytes(stmt, i);
+                if(bytes<=0){
+                    values[i + idx] = QVariant(QVariant::String);
+                }else {
+                    values[i + idx] = QString::fromUtf8(rawValue,bytes);
+                }
+                break;
+            }
             default:
-                qDebug() << "raw"<<reinterpret_cast<const char*>(sqlite3_column_text(stmt, i));
-                values[i + idx] = QString::fromUtf8(reinterpret_cast<const char*>(sqlite3_column_text(stmt, i)));
+                qCritical() << "unsupported type " <<iType;
                 break;
             }
         }
@@ -457,7 +468,6 @@ bool QTursoResult::exec()
     Q_D(QTursoResult);
     qDebug() << "exec";
     QVector<QVariant> values = boundValues();
-    qCritical() << "exec"<<values;
     d->skippedStatus = false;
     d->skipRow = false;
     d->rInf.clear();
@@ -475,12 +485,14 @@ bool QTursoResult::exec()
     int paramCount = sqlite3_bind_parameter_count(d->stmt);
     bool paramCountIsValid = paramCount == values.count();
 
-#if (SQLITE_VERSION_NUMBER >= 3003011)
+
     // In the case of the reuse of a named placeholder
     // We need to check explicitly that paramCount is greater than or equal to 1, as sqlite
     // can end up in a case where for virtual tables it returns 0 even though it
     // has parameters
-    if (paramCount >= 1 && paramCount < values.count()) {
+    qDebug() <<"paramCount" << "values" << values.count();
+    if (paramCount >= 1 && paramCount < values.count())
+    {
         const auto countIndexes = [](int counter, const QVector<int> &indexList) {
                                       return counter + indexList.length();
                                   };
@@ -512,9 +524,9 @@ bool QTursoResult::exec()
         }
         values = prunedValues;
     }
-#endif
 
-    qCritical() << "paramCount"<<paramCount;
+
+    qCritical() << "paramCount"<<paramCount<<values;
     if (paramCountIsValid) {
         for (int i = 0; i < paramCount; ++i) {
             res = SQLITE_OK;
@@ -545,26 +557,26 @@ bool QTursoResult::exec()
                 case QVariant::DateTime: {
                     const QDateTime dateTime = value.toDateTime();
                     const QString str = dateTime.toString(Qt::ISODateWithMs);
-                    res = sqlite3_bind_text(d->stmt, i + 1, str.toUtf8(),str.size() * sizeof(ushort), NULL);//SQLITE_TRANSIENT
+                    res = sqlite3_bind_text(d->stmt, i + 1, str.toUtf8(),str.size(), NULL);//SQLITE_TRANSIENT
                     break;
                 }
                 case QVariant::Time: {
                     const QTime time = value.toTime();
                     const QString str = time.toString(u"hh:mm:ss.zzz");
-                    res = sqlite3_bind_text(d->stmt, i + 1, str.toUtf8(),str.size() * sizeof(ushort), NULL);//SQLITE_TRANSIENT
+                    res = sqlite3_bind_text(d->stmt, i + 1, str.toUtf8(),str.size(), NULL);//SQLITE_TRANSIENT
                     break;
                 }
                 case QVariant::String: {
                     // lifetime of string == lifetime of its qvariant
                     const QString *str = static_cast<const QString*>(value.constData());
                     res = sqlite3_bind_text(d->stmt, i + 1, str->toUtf8(),
-                                              (str->size()) * sizeof(QChar), NULL);//SQLITE_STATIC
+                                              (str->size()), NULL);//SQLITE_STATIC
                     break; }
                 default: {
                     QString str = value.toString();
                     // SQLITE_TRANSIENT makes sure that sqlite buffers the data
                     res = sqlite3_bind_text(d->stmt, i + 1, str.toUtf8(),
-                                              (str.size()) * sizeof(QChar), NULL);//SQLITE_TRANSIENT
+                                              str.size(), NULL);//SQLITE_TRANSIENT
                     break; }
                 }
             }
