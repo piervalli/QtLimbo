@@ -86,6 +86,8 @@
 #endif
 #include <sqlite3.h>
 
+#define TURSO_STATIC      ((void*)0)
+#define TURSO_TRANSIENT   ((void*)-1)
 Q_DECLARE_OPAQUE_POINTER(sqlite3*)
 Q_DECLARE_METATYPE(sqlite3*)
 
@@ -310,10 +312,16 @@ bool QTursoResultPrivate::fetchNext(QSqlCachedResult::ValueCache &values, int id
             const auto iType = sqlite3_column_type(stmt, i);
             switch (iType) {
             case SQLITE_BLOB:
-                values[i + idx] = QByteArray(static_cast<const char *>(
-                            sqlite3_column_blob(stmt, i)),
-                            sqlite3_column_bytes(stmt, i));
+            {
+                const void* blob = sqlite3_column_blob(stmt, i);
+                const int size = sqlite3_column_bytes(stmt, i);
+                if (!blob || size == 0) {
+                    values[i + idx]=QByteArray{};
+                }else {
+                    values[i + idx] = QByteArray(static_cast<const char *>(blob),size);
+                }
                 break;
+            }
             case SQLITE_INTEGER:
                 values[i + idx] = sqlite3_column_int64(stmt, i);
                 break;
@@ -333,15 +341,19 @@ bool QTursoResultPrivate::fetchNext(QSqlCachedResult::ValueCache &values, int id
                 };
                 break;
             case SQLITE_NULL:
-                values[i + idx] = QVariant(QVariant::String);
+                values[i + idx] = QVariant();
                 break;
             case SQLITE_TEXT:
             {
                 const auto rawValue=reinterpret_cast<const char*>(sqlite3_column_text(stmt, i));
                 int bytes = sqlite3_column_bytes(stmt, i);
-                if(bytes<=0){
-                    values[i + idx] = QVariant(QVariant::String);
-                }else {
+                if (!rawValue) {
+                    values[i + idx] = QString();
+                }
+                else if (bytes <= 0) {
+                    values[i + idx] = QString("");  // Stringa vuota valida
+                }
+                else {
                     values[i + idx] = QString::fromUtf8(rawValue,bytes);
                 }
                 break;
@@ -526,7 +538,7 @@ bool QTursoResult::exec()
     }
 
 
-    qCritical() << "paramCount"<<paramCount<<values;
+    //qCritical() << "paramCount"<<paramCount<<values;
     if (paramCountIsValid) {
         for (int i = 0; i < paramCount; ++i) {
             res = SQLITE_OK;
@@ -535,13 +547,14 @@ bool QTursoResult::exec()
             if (value.isNull()) {
                 res = sqlite3_bind_null(d->stmt, i + 1);
             } else {
+                qDebug() << "userType" << value.userType() <<value.typeName();
                 switch (value.userType()) {
                 case QVariant::ByteArray: {
                     const QByteArray *ba = static_cast<const QByteArray*>(value.constData());
                     const unsigned char* blob_data = reinterpret_cast<const unsigned char*>(ba->constData());
                     int blob_size = ba->size();
                     res = sqlite3_bind_blob(d->stmt, i + 1, blob_data,
-                                            blob_size, NULL);
+                                            blob_size, TURSO_STATIC);
                     break; }
                 case QVariant::Int:
                 case QVariant::Bool:
@@ -556,27 +569,28 @@ bool QTursoResult::exec()
                     break;
                 case QVariant::DateTime: {
                     const QDateTime dateTime = value.toDateTime();
-                    const QString str = dateTime.toString(Qt::ISODateWithMs);
-                    res = sqlite3_bind_text(d->stmt, i + 1, str.toUtf8(),str.size(), NULL);//SQLITE_TRANSIENT
+                    const auto bytea = dateTime.toString(Qt::ISODateWithMs).toUtf8();
+                    res = sqlite3_bind_text(d->stmt, i + 1, bytea.constData(),bytea.size(), TURSO_TRANSIENT);//SQLITE_TRANSIENT
                     break;
                 }
                 case QVariant::Time: {
                     const QTime time = value.toTime();
-                    const QString str = time.toString(u"hh:mm:ss.zzz");
-                    res = sqlite3_bind_text(d->stmt, i + 1, str.toUtf8(),str.size(), NULL);//SQLITE_TRANSIENT
+                    const auto bytea = time.toString(u"hh:mm:ss.zzz").toUtf8();
+                    res = sqlite3_bind_text(d->stmt, i + 1, bytea.constData(),bytea.size(), TURSO_TRANSIENT);//SQLITE_TRANSIENT
                     break;
                 }
                 case QVariant::String: {
                     // lifetime of string == lifetime of its qvariant
-                    const QString *str = static_cast<const QString*>(value.constData());
-                    res = sqlite3_bind_text(d->stmt, i + 1, str->toUtf8(),
-                                              (str->size()), NULL);//SQLITE_STATIC
+                    const auto bytea = value.toString().toUtf8();
+                    int bytea_size = bytea.size();
+                    res = sqlite3_bind_text(d->stmt, i + 1, bytea.constData(),
+                                              bytea_size, TURSO_TRANSIENT);//was SQLITE_STATIC
                     break; }
                 default: {
-                    QString str = value.toString();
+                    const auto bytea = value.toString().toUtf8();
                     // SQLITE_TRANSIENT makes sure that sqlite buffers the data
-                    res = sqlite3_bind_text(d->stmt, i + 1, str.toUtf8(),
-                                              str.size(), NULL);//SQLITE_TRANSIENT
+                    res = sqlite3_bind_text(d->stmt, i + 1, bytea.constData(),
+                                              (bytea.size()), TURSO_TRANSIENT);//SQLITE_TRANSIENT
                     break; }
                 }
             }

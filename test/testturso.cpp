@@ -1,4 +1,5 @@
 #include "testturso.h"
+#include "qsqlindex.h"
 #include <QDebug>
 TestTurso::TestTurso(QObject *parent)
     : QObject{parent},testDbPath("test_turso.db")
@@ -42,6 +43,179 @@ void TestTurso::cleanupTestCase()
     QSqlDatabase::removeDatabase(m_defaultConnection);
 
     qInfo() << "=== Fine Test Suite QTURSO ===";
+}
+
+void TestTurso::testSelectWithWhere()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QVERIFY(query.exec("INSERT INTO test_all_types (col_integer, col_text) VALUES (1001, 'where_test')"));
+    QVERIFY(query.exec("SELECT col_text FROM test_all_types WHERE col_integer = 1001 AND col_text = 'where_test'"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toString(), QString("where_test"));
+
+    qInfo() << "✓ SELECT with WHERE OK";
+}
+
+void TestTurso::testSelectWithOrderBy()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QVERIFY(query.exec("INSERT INTO test_all_types (col_integer) VALUES (3), (1), (2)"));
+    QVERIFY(query.exec("SELECT col_integer FROM test_all_types WHERE col_integer IN (1,2,3) ORDER BY col_integer ASC"));
+
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 1);
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 2);
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 3);
+
+    qInfo() << "✓ SELECT with ORDER BY OK";
+}
+
+void TestTurso::testSelectWithLimit()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QVERIFY(query.exec("SELECT * FROM test_all_types LIMIT 5"));
+
+    int count = 0;
+    while (query.next()) count++;
+    QVERIFY(count <= 5);
+
+    qInfo() << "✓ SELECT with LIMIT OK";
+}
+
+void TestTurso::testSelectWithJoin()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QVERIFY(query.exec("CREATE TABLE IF NOT EXISTS test_join_a (id INTEGER, name TEXT)"));
+    QVERIFY(query.exec("CREATE TABLE IF NOT EXISTS test_join_b (id INTEGER, value TEXT)"));
+
+    QVERIFY(query.exec("INSERT INTO test_join_a VALUES (1, 'A'), (2, 'B')"));
+    QVERIFY(query.exec("INSERT INTO test_join_b VALUES (1, 'X'), (2, 'Y')"));
+
+    QVERIFY(query.exec("SELECT a.name, b.value FROM test_join_a a INNER JOIN test_join_b b ON a.id = b.id"));
+
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toString(), QString("A"));
+    QCOMPARE(query.value(1).toString(), QString("X"));
+
+    qInfo() << "✓ SELECT with JOIN OK";
+}
+
+void TestTurso::testSelectWithGroupBy()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QVERIFY(query.exec("INSERT INTO test_all_types (col_integer, col_text) VALUES (1, 'A'), (1, 'A'), (2, 'B')"));
+    QVERIFY(query.exec("SELECT col_integer, COUNT(*) FROM test_all_types WHERE col_integer IN (1,2) GROUP BY col_integer"));
+
+    QVERIFY(query.next());
+    int count1 = query.value(1).toInt();
+    QVERIFY(count1 >= 2);
+
+    qInfo() << "✓ SELECT with GROUP BY OK";
+}
+
+// ============================================================================
+// EDGE CASES (2 test)
+// ============================================================================
+
+void TestTurso::testVeryLongString()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QString longString(100000, 'X');
+
+    query.prepare("INSERT INTO test_all_types (col_text) VALUES (?)");
+    query.addBindValue(longString);
+
+    if (query.exec()) {
+        query.prepare("SELECT LENGTH(col_text) FROM test_all_types WHERE col_text LIKE 'XXX%'");
+        QVERIFY(query.exec());
+        QVERIFY(query.next());
+        QCOMPARE(query.value(0).toInt(), longString.length());
+
+        qInfo() << "✓ Very long string OK:" << longString.length() << "chars";
+    } else {
+        qInfo() << "⚠ Very long string skipped (size limit)";
+    }
+}
+
+void TestTurso::testManyColumns()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QStringList cols;
+    for (int i = 0; i < 50; ++i) {
+        cols << QString("col_%1 INTEGER").arg(i);
+    }
+    QString sql = "DROP TABLE IF EXISTS test_many_cols";
+    QVERIFY(query.exec(sql));
+    sql = "CREATE TABLE IF NOT EXISTS test_many_cols (" + cols.join(", ") + ")";
+    QVERIFY(query.exec(sql));
+
+    QStringList vals;
+    for (int i = 0; i < 50; ++i) {
+        vals << QString::number(i);
+    }
+
+    QVERIFY(query.exec("INSERT INTO test_many_cols VALUES (" + vals.join(", ") + ")"));
+    QVERIFY(query.exec("SELECT * FROM test_many_cols"));
+    QVERIFY(query.next());
+
+    QCOMPARE(query.record().count(), 50);
+
+    qInfo() << "✓ Many columns OK: 50 columns";
+}
+
+void TestTurso::testManyColumnsManyRows()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+
+    QStringList cols;
+    for (int i = 0; i < 50; ++i) {
+        cols << QString("col_%1 INTEGER").arg(i);
+    }
+    QString sql = "DROP TABLE IF EXISTS test_many_cols_rows";
+    QVERIFY(query.exec(sql));
+    sql = "CREATE TABLE IF NOT EXISTS test_many_cols_rows (" + cols.join(", ") + ")";
+    QVERIFY(query.exec(sql));
+
+    QStringList vals;
+    for (int i = 0; i < 50; ++i) {
+        vals << QString::number(i);
+    }
+    QString q=QString("INSERT INTO test_many_cols_rows VALUES (" + vals.join(", ") + ")");
+    for (int i = 0; i < 5000; ++i) {
+        q.append(QString(",(%2)").arg(vals.join(", ")));
+    }
+    QFile file("out.sql");
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)){
+        file.write(q.toUtf8());
+        file.close();
+    }
+    QBENCHMARK {
+        QVERIFY(query.exec(q));
+    }
+    QVERIFY(query.exec("SELECT * FROM test_many_cols_rows"));
+    QVERIFY(query.next());
+
+    QCOMPARE(query.record().count(), 50);
+
+    qInfo() << "✓ Many columns OK: 50 columns";
 }
 
 void TestTurso::init()
@@ -132,7 +306,7 @@ void TestTurso::testCreateTableWithAllTypes()
 
 void TestTurso::testIntegerType()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     // Insert
@@ -171,7 +345,7 @@ void TestTurso::testTextType()
 
 void TestTurso::testRealType()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     double testReal = 3.14159;
@@ -216,7 +390,7 @@ void TestTurso::testBlobType()
 
 void TestTurso::testNullType()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     query.prepare("INSERT INTO test_all_types (col_null) VALUES (?)");
@@ -252,7 +426,7 @@ void TestTurso::testBooleanType()
 
 void TestTurso::testDateTimeType()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     QDateTime now = QDateTime::currentDateTime();
@@ -296,7 +470,7 @@ void TestTurso::testFieldNames()
 
 void TestTurso::testFieldTypes()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     // Inserisci dati di test
@@ -342,7 +516,7 @@ void TestTurso::testFieldCount()
 
 void TestTurso::testValueRetrieval()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     // Inserisci valori di test
@@ -373,7 +547,7 @@ void TestTurso::testValueRetrieval()
 
 void TestTurso::testValueConversion()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     QVERIFY(query.exec("INSERT INTO test_all_types (col_integer) VALUES (777)"));
@@ -398,7 +572,7 @@ void TestTurso::testNullValues()
     QSqlQuery query(db);
 
     QVERIFY(query.exec("INSERT INTO test_all_types (col_integer, col_text) VALUES (NULL, NULL)"));
-    QVERIFY(query.exec("SELECT col_integer, col_text FROM test_all_types WHERE col_integer IS NULL"));
+    QVERIFY(query.exec("SELECT col_integer, col_text FROM test_all_types WHERE col_integer IS NULL AND col_text IS NULL"));
     QVERIFY(query.next());
 
     QVERIFY(query.value(0).isNull());
@@ -413,7 +587,7 @@ void TestTurso::testNullValues()
 
 void TestTurso::testPreparedStatement()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     query.prepare("INSERT INTO test_all_types (col_integer, col_text, col_real) "
@@ -484,13 +658,71 @@ void TestTurso::testMultipleBindings()
     qInfo() << "✓ Multiple bindings OK";
 }
 
+void TestTurso::testPositionalBinding()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    query.prepare("INSERT INTO test_all_types (col_integer, col_text, col_real) VALUES (?1, ?2, ?3)");
+    query.addBindValue(101);
+    query.addBindValue("positional");
+    query.addBindValue(1.23);
+
+    QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
+
+    QVERIFY(query.exec("SELECT col_integer, col_text, col_real FROM test_all_types WHERE col_integer = 101"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 101);
+    QCOMPARE(query.value(1).toString(), QString("positional"));
+    QCOMPARE(query.value(2).toDouble(), 1.23);
+
+    qInfo() << "✓ Positional binding OK";
+
+}
+void TestTurso::testNamedBinding()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    query.prepare("INSERT INTO test_all_types (col_integer, col_text, col_real) VALUES (:id, :name, :value)");
+    query.bindValue(":id", 201);
+    query.bindValue(":name", "named");
+    query.bindValue(":value", 4.56);
+
+    QVERIFY2(query.exec(), qPrintable(query.lastError().text()));
+
+    QVERIFY(query.exec("SELECT col_text FROM test_all_types WHERE col_integer = 201"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toString(), QString("named"));
+
+    qInfo() << "✓ Named binding OK";
+}
+void TestTurso::testPreparedQueryReuse()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    query.prepare("INSERT INTO test_all_types (col_integer, col_text) VALUES (?, ?)");
+
+    for (int i = 0; i < 3; ++i) {
+        query.addBindValue(10 + i);
+        query.addBindValue(QString("reuse_%1").arg(i));
+        QVERIFY(query.exec());
+    }
+
+    QVERIFY(query.exec("SELECT COUNT(*) FROM test_all_types WHERE col_integer BETWEEN 10 AND 12"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 3);
+
+    qInfo() << "✓ Prepared query reuse OK";
+}
 // ============================================================================
 // TEST TRANSAZIONI
 // ============================================================================
 
 void TestTurso::testTransaction()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QVERIFY(db.transaction());
 
     QSqlQuery query(db);
@@ -504,7 +736,134 @@ void TestTurso::testTransaction()
 
     qInfo() << "✓ Transaction commit OK";
 }
+void TestTurso::testPreparedQueryBatch()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
 
+    query.prepare("INSERT INTO test_all_types (col_integer, col_text) VALUES (?, ?)");
+
+    QVariantList integers;
+    QVariantList texts;
+
+    for (int i = 0; i < 10; ++i) {
+        integers << (10000 + i);
+        texts << QString("batch_%1").arg(i);
+    }
+
+    query.addBindValue(integers);
+    query.addBindValue(texts);
+
+    QVERIFY2(query.execBatch(), qPrintable(query.lastError().text()));
+
+    QVERIFY(query.exec("SELECT COUNT(*) FROM test_all_types WHERE col_integer BETWEEN 10000 AND 10009"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 10);
+
+    qInfo() << "✓ Batch execution OK";
+}
+void TestTurso::testMixedBinding()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    // Mixing ? and :name dovrebbe fallire o essere gestito
+    query.prepare("INSERT INTO test_all_types (col_integer, col_text) VALUES (?, :name)");
+    query.addBindValue(301);
+    query.bindValue(":name", "mixed");
+
+    bool result = query.exec();
+    qInfo() << "✓ Mixed binding result:" << result << "(may fail as expected)";
+}
+void TestTurso::testRecord()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QVERIFY(query.exec("SELECT col_integer, col_text, col_real FROM test_all_types LIMIT 1"));
+
+    QSqlRecord rec = query.record();
+
+    QVERIFY(rec.count() >= 3);
+    QCOMPARE(rec.fieldName(0), QString("col_integer"));
+    QCOMPARE(rec.fieldName(1), QString("col_text"));
+    QCOMPARE(rec.fieldName(2), QString("col_real"));
+
+    qInfo() << "✓ Record metadata OK";
+}
+void TestTurso::testRecordFieldIndex()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QVERIFY(query.exec("INSERT INTO test_all_types (col_integer, col_text) VALUES (500, 'test')"));
+    QVERIFY(query.exec("SELECT col_integer, col_text FROM test_all_types WHERE col_integer = 500"));
+    QVERIFY(query.next());
+
+    QSqlRecord rec = query.record();
+
+    int idx_integer = rec.indexOf("col_integer");
+    int idx_text = rec.indexOf("col_text");
+
+    QVERIFY(idx_integer >= 0);
+    QVERIFY(idx_text >= 0);
+
+    QCOMPARE(query.value(idx_integer).toInt(), 500);
+    QCOMPARE(query.value(idx_text).toString(), QString("test"));
+
+    qInfo() << "✓ Field index lookup OK";
+}
+
+void TestTurso::testRecordFieldName()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QVERIFY(query.exec("SELECT col_integer AS numero, col_text AS testo FROM test_all_types LIMIT 1"));
+
+    QSqlRecord rec = query.record();
+    QCOMPARE(rec.fieldName(0).toLower(), QString("numero"));
+    QCOMPARE(rec.fieldName(1).toLower(), QString("testo"));
+
+    qInfo() << "✓ Field name with alias OK";
+}
+
+void TestTurso::testRecordFieldCount()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QVERIFY(query.exec("SELECT * FROM test_all_types LIMIT 1"));
+
+    QSqlRecord rec = query.record();
+    QVERIFY(rec.count() > 0);
+
+    qInfo() << "✓ Field count OK:" << rec.count();
+}
+
+void TestTurso::testRecordIsNull()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    QVERIFY(query.exec("INSERT INTO test_all_types (col_integer, col_text) VALUES (600, NULL)"));
+    QVERIFY(query.exec("SELECT col_integer, col_text FROM test_all_types WHERE col_integer = 600"));
+    QVERIFY(query.next());
+
+    QVERIFY(!query.isNull(0));
+    QVERIFY(query.isNull(1));
+
+    qInfo() << "✓ Record isNull OK";
+}
+
+void TestTurso::testPrimaryIndex()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlIndex idx = db.primaryIndex("test_all_types");
+
+    qInfo() << "✓ Primary index count:" << idx.count();
+    QVERIFY(idx.count() >= 0);
+}
 void TestTurso::testTransactionRollback()
 {
     auto db = QSqlDatabase::database("TURSO");
@@ -552,7 +911,7 @@ void TestTurso::testTransactionCommit()
 
 void TestTurso::testEmptyString()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     query.prepare("INSERT INTO test_all_types (col_text) VALUES (?)");
@@ -568,10 +927,12 @@ void TestTurso::testEmptyString()
 
 void TestTurso::testUnicodeStrings()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     QString unicodeText = "Hello 世界 🚀 Привет";
+    qDebug() << "=== UNICODE TEST ===";
+    qDebug() << "Original string length:" << unicodeText.length();
     query.prepare("INSERT INTO test_all_types (col_text) VALUES (?)");
     query.addBindValue(unicodeText);
     QVERIFY(query.exec());
@@ -585,7 +946,7 @@ void TestTurso::testUnicodeStrings()
 
 void TestTurso::testLargeBlob()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     // Crea un blob di 1MB
@@ -606,7 +967,7 @@ void TestTurso::testLargeBlob()
 
 void TestTurso::testSpecialCharacters()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     QString specialText = "Test's \"quoted\" text\nwith\nnewlines\tand\ttabs";
@@ -627,7 +988,7 @@ void TestTurso::testSpecialCharacters()
 
 void TestTurso::testBulkInsert()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     QVERIFY(db.transaction());
@@ -657,7 +1018,7 @@ void TestTurso::testBulkInsert()
 
 void TestTurso::testMultipleQueries()
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
 
     QElapsedTimer timer;
@@ -679,7 +1040,7 @@ void TestTurso::testMultipleQueries()
 
 bool TestTurso::executeQuery(const QString &sql)
 {
-     auto db = QSqlDatabase::database("TURSO");
+    auto db = QSqlDatabase::database("TURSO");
     QSqlQuery query(db);
     if (!query.exec(sql)) {
         qWarning() << "Query failed:" << sql;

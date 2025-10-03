@@ -53,6 +53,21 @@ private slots:
     void testPreparedStatementWithNull();
     void testMultipleBindings();
 
+    // Prepared Statements (5 test)
+    void testPositionalBinding();
+    void testNamedBinding();
+    void testPreparedQueryReuse();
+    void testPreparedQueryBatch();
+    void testMixedBinding();
+
+    // Record e Metadata (6 test)
+    void testRecord();
+    void testRecordFieldIndex();
+    void testRecordFieldName();
+    void testRecordFieldCount();
+    void testRecordIsNull();
+    void testPrimaryIndex();
+
     // Test nomi campi
     void testFieldNames();
     void testFieldTypes();
@@ -78,6 +93,19 @@ private slots:
     void testBulkInsert();
     void testMultipleQueries();
     void cleanupTestCase();   // Eseguito una volta alla fine
+
+    // Query Complesse (5 test)
+    void testSelectWithWhere();
+    void testSelectWithOrderBy();
+    void testSelectWithLimit();
+    void testSelectWithJoin();
+    void testSelectWithGroupBy();
+
+
+    // Edge Cases (2 test)
+    void testVeryLongString();
+    void testManyColumns();
+    void testManyColumnsManyRows();
 signals:
 private:
 
