@@ -355,6 +355,89 @@ void TestTurso::testInsertIntoSelectRowId2()
     qInfo() << "✓ INSERT INTO SELECT OK - 3 records copied";
 }
 
+void TestTurso::testInsertIntoSelectWithRowid()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    // Cleanup
+    QVERIFY(query.exec("DROP TABLE IF EXISTS t"));
+
+    // Crea tabella con PRIMARY KEY
+    QVERIFY2(query.exec("CREATE TABLE t(a)"),
+             qPrintable(query.lastError().text()));
+
+    // Insert iniziale
+    QVERIFY2(query.exec("INSERT INTO t VALUES (1)"),
+             qPrintable(query.lastError().text()));
+
+    // Verifica record iniziale
+    QVERIFY(query.exec("SELECT a FROM t"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 1);
+    QVERIFY(!query.next()); // Solo 1 record
+
+    // INSERT INTO SELECT usando rowid
+    // rowid è una colonna speciale di SQLite che identifica univocamente ogni riga
+    QVERIFY2(query.exec("INSERT INTO t(a) SELECT rowid FROM t"),
+             qPrintable(query.lastError().text()));
+
+    // Verifica che ora ci sia 1 record
+    QVERIFY(query.exec("SELECT COUNT(*) FROM t"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 2);
+
+    // Verifica i valori
+    QVERIFY(query.exec("SELECT a FROM t ORDER BY a"));
+
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 1); // Record originale
+
+    QVERIFY(query.next());
+    qDebug() << "Record 2 - rowid:" << query.value(0).toInt() << "a:" << query.value(1).toInt();
+    QCOMPARE(query.value(0).toInt(), 1); // a = 1
+    qInfo() << "✓ INSERT INTO SELECT with rowid OK";
+
+    // Cleanup
+    // query.exec("DROP TABLE t");
+}
+
+void TestTurso::testInsertIntoSelectWithRowidExplicit()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    query.exec("DROP TABLE IF EXISTS te");
+
+    QVERIFY(query.exec("CREATE TABLE te(a)"));
+    QVERIFY(query.exec("INSERT INTO te VALUES (1)"));
+
+    // Verifica il rowid del primo record
+    QVERIFY(query.exec("SELECT rowid, a FROM te"));
+    QVERIFY(query.next());
+    int firstRowid = query.value(0).toInt();
+    int firstA = query.value(1).toInt();
+
+    qDebug() << "First record - rowid:" << firstRowid << "a:" << firstA;
+    QCOMPARE(firstA, 1);
+
+    // INSERT usando rowid
+    QVERIFY(query.exec("INSERT INTO te(a) SELECT rowid FROM te"));
+
+    // Verifica i nuovi record
+    QVERIFY(query.exec("SELECT rowid, a FROM t ORDER BY rowid"));
+
+    QVERIFY(query.next());
+    qDebug() << "Record 1 - rowid:" << query.value(0).toInt() << "a:" << query.value(1).toInt();
+    QCOMPARE(query.value(1).toInt(), 1); // a = 1
+
+    QVERIFY(query.next());
+    qDebug() << "Record 2 - rowid:" << query.value(0).toInt() << "a:" << query.value(1).toInt();
+    QCOMPARE(query.value(1).toInt(), 1); // a = 1
+
+    qInfo() << "✓ INSERT INTO SELECT with explicit rowid verification OK";
+}
+
 // ============================================================================
 // EDGE CASES (2 test)
 // ============================================================================
