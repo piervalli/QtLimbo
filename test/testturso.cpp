@@ -125,6 +125,236 @@ void TestTurso::testSelectWithGroupBy()
     qInfo() << "✓ SELECT with GROUP BY OK";
 }
 
+void TestTurso::testInsertIntoSelect()
+{
+
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    // Cleanup
+    QVERIFY(query.exec("DROP TABLE IF EXISTS source_table"));
+    QVERIFY(query.exec("DROP TABLE IF EXISTS dest_table"));
+
+    // Setup
+    QVERIFY(query.exec("CREATE TABLE source_table ("
+                       "id INTEGER PRIMARY KEY, "
+                       "name TEXT, "
+                       "value INTEGER)"));
+
+    QVERIFY(query.exec("INSERT INTO source_table (id, name, value) VALUES "
+                       "(1, 'Alice', 100), "
+                       "(2, 'Bob', 200), "
+                       "(3, 'Charlie', 300)"));
+
+    QVERIFY(query.exec("CREATE TABLE dest_table ("
+                       "id INTEGER PRIMARY KEY, "
+                       "name TEXT, "
+                       "value INTEGER)"));
+
+    // Test INSERT INTO SELECT
+    QVERIFY2(query.exec("INSERT INTO dest_table SELECT * FROM source_table"),
+             qPrintable(query.lastError().text()));
+
+    QCOMPARE(query.numRowsAffected(), 3);
+
+    // Verifica
+    QVERIFY(query.exec("SELECT COUNT(*) FROM dest_table"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 3);
+
+    QVERIFY(query.exec("SELECT id, name, value FROM dest_table ORDER BY id"));
+
+    int expectedId = 1;
+    QStringList expectedNames = {"Alice", "Bob", "Charlie"};
+    QList<int> expectedValues = {100, 200, 300};
+
+    int idx = 0;
+    while (query.next()) {
+        QCOMPARE(query.value(0).toInt(), expectedId++);
+        QCOMPARE(query.value(1).toString(), expectedNames[idx]);
+        QCOMPARE(query.value(2).toInt(), expectedValues[idx]);
+        idx++;
+    }
+
+    QCOMPARE(idx, 3);
+
+    qInfo() << "✓ INSERT INTO SELECT OK - 3 records copied";
+
+    // Cleanup
+    // QVERIFY(query.exec("DROP TABLE source_table"));
+    // QVERIFY(query.exec("DROP TABLE dest_table"));
+}
+
+void TestTurso::testInsertIntoSelect2()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    // Cleanup
+    QVERIFY(query.exec("DROP TABLE IF EXISTS source_table"));
+    QVERIFY(query.exec("DROP TABLE IF EXISTS dest_table"));
+
+    // Setup
+    QVERIFY(query.exec("CREATE TABLE source_table ("
+                       "id INTEGER PRIMARY KEY, "
+                       "name TEXT, "
+                       "value INTEGER)"));
+
+    QVERIFY(query.exec("INSERT INTO source_table (id, name, value) VALUES "
+                       "(1, 'Alice', 100), "
+                       "(2, 'Bob', 200), "
+                       "(3, 'Charlie', 300)"));
+
+    QVERIFY(query.exec("CREATE TABLE dest_table ("
+                       "id INTEGER PRIMARY KEY, "
+                       "name TEXT, "
+                       "value INTEGER)"));
+
+    // Test INSERT INTO SELECT
+    QVERIFY2(query.exec("INSERT INTO dest_table(id,name,value) SELECT id,name,value FROM source_table"),
+             qPrintable(query.lastError().text()));
+
+    QCOMPARE(query.numRowsAffected(), 3);
+
+    // Verifica
+    QVERIFY(query.exec("SELECT COUNT(*) FROM dest_table"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 3);
+
+    QVERIFY(query.exec("SELECT id, name, value FROM dest_table ORDER BY id"));
+
+    int expectedId = 1;
+    QStringList expectedNames = {"Alice", "Bob", "Charlie"};
+    QList<int> expectedValues = {100, 200, 300};
+
+    int idx = 0;
+    while (query.next()) {
+        QCOMPARE(query.value(0).toInt(), expectedId++);
+        QCOMPARE(query.value(1).toString(), expectedNames[idx]);
+        QCOMPARE(query.value(2).toInt(), expectedValues[idx]);
+        idx++;
+    }
+
+    QCOMPARE(idx, 3);
+
+    qInfo() << "✓ INSERT INTO SELECT OK - 3 records copied";
+
+}
+
+void TestTurso::testInsertIntoSelectRowId()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    // Cleanup
+    QVERIFY(query.exec("DROP TABLE IF EXISTS source_tablerowid"));
+    QVERIFY(query.exec("DROP TABLE IF EXISTS dest_tablerowid"));
+
+    // Setup
+    QVERIFY(query.exec("CREATE TABLE source_tablerowid ("
+                       "id INTEGER, "
+                       "name TEXT, "
+                       "value INTEGER)"));
+
+    QVERIFY(query.exec("INSERT INTO source_tablerowid (id, name, value) VALUES "
+                       "(1, 'Alice', 100), "
+                       "(2, 'Bob', 200), "
+                       "(3, 'Charlie', 300)"));
+
+    QVERIFY(query.exec("CREATE TABLE dest_tablerowid ("
+                       "id INTEGER, "
+                       "name TEXT, "
+                       "value INTEGER)"));
+
+    // Test INSERT INTO SELECT
+    QVERIFY2(query.exec("INSERT INTO dest_tablerowid SELECT * FROM source_tablerowid"),
+             qPrintable(query.lastError().text()));
+
+    QCOMPARE(query.numRowsAffected(), 3);
+
+    // Verifica
+    QVERIFY(query.exec("SELECT COUNT(*) FROM dest_tablerowid"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 3);
+
+    QVERIFY(query.exec("SELECT id, name, value FROM dest_tablerowid ORDER BY id"));
+
+    int expectedId = 1;
+    QStringList expectedNames = {"Alice", "Bob", "Charlie"};
+    QList<int> expectedValues = {100, 200, 300};
+
+    int idx = 0;
+    while (query.next()) {
+        QCOMPARE(query.value(0).toInt(), expectedId++);
+        QCOMPARE(query.value(1).toString(), expectedNames[idx]);
+        QCOMPARE(query.value(2).toInt(), expectedValues[idx]);
+        idx++;
+    }
+
+    QCOMPARE(idx, 3);
+
+    qInfo() << "✓ INSERT INTO SELECT OK - 3 records copied";
+
+    // Cleanup
+    // QVERIFY(query.exec("DROP TABLE source_tablerowid"));
+    // QVERIFY(query.exec("DROP TABLE dest_tablerowid"));
+}
+
+void TestTurso::testInsertIntoSelectRowId2()
+{
+    auto db = QSqlDatabase::database("TURSO");
+    QSqlQuery query(db);
+
+    // Cleanup
+    QVERIFY(query.exec("DROP TABLE IF EXISTS source_tablerowid"));
+    QVERIFY(query.exec("DROP TABLE IF EXISTS dest_tablerowid"));
+
+    // Setup
+    QVERIFY(query.exec("CREATE TABLE source_tablerowid ("
+                       "id INTEGER, "
+                       "name TEXT, "
+                       "value INTEGER)"));
+
+    QVERIFY(query.exec("INSERT INTO source_tablerowid (id, name, value) VALUES "
+                       "(1, 'Alice', 100), "
+                       "(2, 'Bob', 200), "
+                       "(3, 'Charlie', 300)"));
+
+    QVERIFY(query.exec("CREATE TABLE dest_tablerowid ("
+                       "id INTEGER, "
+                       "name TEXT, "
+                       "value INTEGER)"));
+
+    // Test INSERT INTO SELECT
+    QVERIFY2(query.exec("INSERT INTO dest_tablerowid(id,name,value) SELECT id,name,value FROM source_tablerowid"),
+             qPrintable(query.lastError().text()));
+
+    QCOMPARE(query.numRowsAffected(), 3);
+
+    // Verifica
+    QVERIFY(query.exec("SELECT COUNT(*) FROM dest_tablerowid"));
+    QVERIFY(query.next());
+    QCOMPARE(query.value(0).toInt(), 3);
+
+    QVERIFY(query.exec("SELECT id, name, value FROM dest_tablerowid ORDER BY id"));
+
+    int expectedId = 1;
+    QStringList expectedNames = {"Alice", "Bob", "Charlie"};
+    QList<int> expectedValues = {100, 200, 300};
+
+    int idx = 0;
+    while (query.next()) {
+        QCOMPARE(query.value(0).toInt(), expectedId++);
+        QCOMPARE(query.value(1).toString(), expectedNames[idx]);
+        QCOMPARE(query.value(2).toInt(), expectedValues[idx]);
+        idx++;
+    }
+
+    QCOMPARE(idx, 3);
+
+    qInfo() << "✓ INSERT INTO SELECT OK - 3 records copied";
+}
+
 // ============================================================================
 // EDGE CASES (2 test)
 // ============================================================================

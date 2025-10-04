@@ -100,12 +100,16 @@ private slots:
     void testSelectWithLimit();
     void testSelectWithJoin();
     void testSelectWithGroupBy();
-
+    void testInsertIntoSelect();
+    void testInsertIntoSelect2();
+    void testInsertIntoSelectRowId();
+    void testInsertIntoSelectRowId2();
 
     // Edge Cases (2 test)
     void testVeryLongString();
     void testManyColumns();
     void testManyColumnsManyRows();
+
 signals:
 private:
 
